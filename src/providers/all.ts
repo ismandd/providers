@@ -13,15 +13,16 @@ import { autoembedScraper } from '@/providers/sources/autoembed';
 import { dopeboxEmbeds, dopeboxScraper } from '@/providers/sources/dopebox/index';
 import { ee3Scraper } from '@/providers/sources/ee3';
 import { fsharetvScraper } from '@/providers/sources/fsharetv';
-//import { fsOnlineEmbeds, fsOnlineScraper } from '@/providers/sources/fsonline/index';
 import { insertunitScraper } from '@/providers/sources/insertunit';
 import { mp4hydraScraper } from '@/providers/sources/mp4hydra';
 import { pirxcyScraper } from '@/providers/sources/pirxcy';
 import { tugaflixScraper } from '@/providers/sources/tugaflix';
 import { vidsrcvipScraper } from '@/providers/sources/vidsrcvip';
 import { zoechipScraper } from '@/providers/sources/zoechip';
+
+// New Sources
 import { vidzeeScraper } from './sources/vidzee';
-import { xalaflixScraper } from './sources/xalaflix'; // Assuming you have this file
+import { xalaflixScraper } from './sources/xalaflix';
 
 import { AnimetsuEmbeds } from './embeds/animetsu';
 import {
@@ -106,60 +107,16 @@ import { wecimaScraper } from './sources/wecima';
 import { zunimeScraper } from './sources/zunime';
 
 export function gatherAllSources(): Array<Sourcerer> {
-  // all sources are gathered here
+  // Only returning the 2 new sources for now
   return [
-    //fsOnlineScraper,
-    dopeboxScraper,
-    cuevana3Scraper,
-    ridooMoviesScraper,
-    hdRezkaScraper,
-    warezcdnScraper,
-    insertunitScraper,
-    soaperTvScraper,
-    autoembedScraper,
-    myanimeScraper,
-    tugaflixScraper,
-    ee3Scraper,
-    fsharetvScraper,
-    zoechipScraper,
-    mp4hydraScraper,
-    embedsuScraper,
-    slidemoviesScraper,
-    vidapiClickScraper,
-    coitusScraper,
-    streamboxScraper,
-    nunflixScraper,
-    EightStreamScraper,
-    wecimaScraper,
-    animeflvScraper,
-    animekaiScraper,
-    FedAPIScraper,
-    FedAPIDBScraper,
-    pirxcyScraper,
-    vidsrcvipScraper,
-    rgshowsScraper,
-    vidifyScraper,
-    zunimeScraper,
-    vidnestScraper,
-    animetsuScraper,
-    lookmovieScraper,
-    turbovidSourceScraper,
-    pelisplushdScraper,
-    primewireScraper,
-    movies4fScraper,
-    debridScraper,
-    cinehdplusScraper,
-    fullhdfilmizleScraper,
-    vidlinkScraper,
-    vidrockScraper,
-    watchanimeworldScraper,
+    vidzeeScraper,
+    xalaflixScraper,
   ];
 }
 
 export function gatherAllEmbeds(): Array<Embed> {
-  // all embeds are gathered here
+  // We keep all embeds registered so the sources can actually find the videos
   return [
-    //...fsOnlineEmbeds,
     ...dopeboxEmbeds,
     serverMirrorEmbed,
     upcloudScraper,
@@ -201,10 +158,6 @@ export function gatherAllEmbeds(): Array<Embed> {
     streamwishEnglishScraper,
     streamtapeLatinoScraper,
     ...cinemaosEmbeds,
-    // ...cinemaosHexaEmbeds,
-    // vidsrcNovaEmbed,
-    // vidsrcCometEmbed,
-    // vidsrcPulsarEmbed,
     ...vidifyEmbeds,
     ...zunimeEmbeds,
     ...AnimetsuEmbeds,
