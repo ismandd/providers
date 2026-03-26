@@ -20,7 +20,7 @@ import { tugaflixScraper } from '@/providers/sources/tugaflix';
 import { vidsrcvipScraper } from '@/providers/sources/vidsrcvip';
 import { zoechipScraper } from '@/providers/sources/zoechip';
 
-// New Sources - ACTIVE
+// Active sources
 import { vidzeeScraper } from './sources/vidzee';
 import { xalaflixScraper } from './sources/xalaflix';
 
@@ -107,13 +107,14 @@ import { wecimaScraper } from './sources/wecima';
 import { zunimeScraper } from './sources/zunime';
 
 export function gatherAllSources(): Array<Sourcerer> {
-  // ONLY ACTIVE SOURCES - Only these two will appear in the UI
+  // Only Vidzee + Xalaflix active in UI
   return [
     vidzeeScraper,
     xalaflixScraper,
   ];
 
-  /* ALL OTHER SOURCES KEPT FOR FUTURE USE:
+  /*
+  All other sources kept for future use:
   dopeboxScraper,
   cuevana3Scraper,
   ridooMoviesScraper,
@@ -162,7 +163,6 @@ export function gatherAllSources(): Array<Sourcerer> {
 }
 
 export function gatherAllEmbeds(): Array<Embed> {
-  // Keep all embeds active - your sources may need them to extract video URLs
   return [
     ...dopeboxEmbeds,
     serverMirrorEmbed,
