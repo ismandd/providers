@@ -20,6 +20,8 @@ import { pirxcyScraper } from '@/providers/sources/pirxcy';
 import { tugaflixScraper } from '@/providers/sources/tugaflix';
 import { vidsrcvipScraper } from '@/providers/sources/vidsrcvip';
 import { zoechipScraper } from '@/providers/sources/zoechip';
+import { vidzeeScraper } from './sources/vidzee';
+import { xalaflixScraper } from './sources/xalaflix'; // Assuming you have this file
 
 import { AnimetsuEmbeds } from './embeds/animetsu';
 import {
