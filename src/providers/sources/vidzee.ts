@@ -7,8 +7,8 @@ import { NotFoundError } from '../../utils/errors';
 type VidzeeServerResponse = {
   url: Array<{
     lang: string;
-    link: string;    // base64 encoded
-    type: string;    // "hls"
+    link: string;
+    type: string;
     name: string;
     flag: string;
   }>;
@@ -19,24 +19,27 @@ type VidzeeServerResponse = {
 };
 
 function decodeVidzeeLink(encoded: string): string {
-  const decoded = Buffer.from(encoded, 'base64').toString('utf8');
-  const parts = decoded.split(':');
-  return parts.length > 1 ? parts[1] : decoded;
+  // Browser-safe base64 decode (no Buffer)
+  try {
+    const binaryString = atob(encoded);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const decoded = new TextDecoder().decode(bytes);
+    const parts = decoded.split(':');
+    return parts.length > 1 ? parts[1] : decoded;
+  } catch {
+    return encoded; // fallback
+  }
 }
 
-async function scrapeMovie(ctx: MovieScrapeContext): Promise<SourcererOutput> {
+async function vidzeeMovie(ctx: MovieScrapeContext): Promise<SourcererOutput> {
   const tmdbId = ctx.media.tmdbId;
-  if (!tmdbId) throw new NotFoundError('No TMDB ID for Vidzee movie');
+  if (!tmdbId) throw new NotFoundError('No TMDB ID for Vidzee');
 
   const apiUrl = `https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=0&ss=0&ep=1`;
-
-  const json = await ctx.fetcher<VidzeeServerResponse>(apiUrl, {
-    method: 'GET',
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-    },
-  });
+  const json = await ctx.proxiedFetcher<VidzeeServerResponse>(apiUrl);
 
   if (!json.url || json.url.length === 0) {
     throw new NotFoundError('No Vidzee URL found');
@@ -45,14 +48,13 @@ async function scrapeMovie(ctx: MovieScrapeContext): Promise<SourcererOutput> {
   const primary = json.url[0];
   const decrypted = decodeVidzeeLink(primary.link);
 
-  const captions =
-    json.tracks?.map((t, idx) => ({
-      id: `vidzee-${idx}`,
-      lang: t.lang,
-      url: t.url,
-      type: 'vtt' as const,
-      hasClosedCaptions: false,
-    })) ?? [];
+  const captions = json.tracks?.map((t, idx) => ({
+    id: `vidzee-${idx}`,
+    lang: t.lang,
+    url: t.url,
+    type: 'vtt' as const,
+    hasClosedCaptions: false,
+  })) ?? [];
 
   return {
     embeds: [],
@@ -68,22 +70,15 @@ async function scrapeMovie(ctx: MovieScrapeContext): Promise<SourcererOutput> {
   };
 }
 
-async function scrapeShow(ctx: ShowScrapeContext): Promise<SourcererOutput> {
+async function vidzeeShow(ctx: ShowScrapeContext): Promise<SourcererOutput> {
   const tmdbId = ctx.media.tmdbId;
-  if (!tmdbId) throw new NotFoundError('No TMDB ID for Vidzee show');
+  if (!tmdbId) throw new NotFoundError('No TMDB ID for Vidzee');
 
   const season = ctx.media.season.number;
   const episode = ctx.media.episode.number;
 
   const apiUrl = `https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=0&ss=${season}&ep=${episode}`;
-
-  const json = await ctx.fetcher<VidzeeServerResponse>(apiUrl, {
-    method: 'GET',
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-    },
-  });
+  const json = await ctx.proxiedFetcher<VidzeeServerResponse>(apiUrl);
 
   if (!json.url || json.url.length === 0) {
     throw new NotFoundError('No Vidzee URL found');
@@ -92,14 +87,13 @@ async function scrapeShow(ctx: ShowScrapeContext): Promise<SourcererOutput> {
   const primary = json.url[0];
   const decrypted = decodeVidzeeLink(primary.link);
 
-  const captions =
-    json.tracks?.map((t, idx) => ({
-      id: `vidzee-${idx}`,
-      lang: t.lang,
-      url: t.url,
-      type: 'vtt' as const,
-      hasClosedCaptions: false,
-    })) ?? [];
+  const captions = json.tracks?.map((t, idx) => ({
+    id: `vidzee-${idx}`,
+    lang: t.lang,
+    url: t.url,
+    type: 'vtt' as const,
+    hasClosedCaptions: false,
+  })) ?? [];
 
   return {
     embeds: [],
@@ -120,6 +114,6 @@ export const vidzeeScraper = makeSourcerer({
   name: 'Vidzee',
   rank: 120,
   flags: [flags.CORS_ALLOWED],
-  scrapeMovie,
-  scrapeShow,
+  scrapeMovie: vidzeeMovie,
+  scrapeShow: vidzeeShow,
 });
