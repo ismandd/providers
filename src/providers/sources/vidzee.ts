@@ -1,40 +1,67 @@
-// Changed from '@/search/flags' to relative path
-import { flags } from '../../search/flags'; 
-// Changed from '@/providers/base' to relative path
 import { makeSourcerer } from '../base';
-// Changed from '@/search/entities' to relative path
-import { MovieMedia, ShowMedia } from '../../search/entities';
+import { flags } from '../flags';
+import { MovieMedia, ShowMedia } from '../entities';
+import { NotFoundError } from '../../utils/errors';
 
 export const vidzeeScraper = makeSourcerer({
   id: 'vidzee',
   name: 'Vidzee',
-  rank: 150,
+  rank: 120,
   flags: [flags.CORS_ALLOWED],
   async scrapeMovie(ctx) {
-    // 1. Fetch the server data using the TMDB ID (ctx.media.tmdbId)
-    const data = await ctx.fetcher(`https://player.vidzee.wtf/api/server?id=${ctx.media.tmdbId}&sr=0`);
-    
-    // 2. Map the results to the format P-Stream expects
-    const streams = data.url.map((stream: any) => ({
-      id: stream.name,
-      type: 'hls',
-      playlist: stream.link, 
-      flags: [flags.CORS_ALLOWED],
-      captions: data.tracks.map((track: any) => ({
-        id: track.url,
-        language: track.lang.toLowerCase(),
-        type: 'vtt',
-        url: track.url,
-      })),
-    }));
+    const searchResponse = await ctx.fetcher<string>(`https://vidzee.to/search?query=${encodeURIComponent(ctx.media.title)}`, {
+      method: 'GET',
+    });
+
+    const match = searchResponse.match(/href="\/watch\/(movie\/[^"]+)"/);
+    if (!match) throw new NotFoundError('No movie found');
+
+    const videoPage = await ctx.fetcher<string>(`https://vidzee.to/watch/${match[1]}`, {
+      method: 'GET',
+    });
+
+    const sourceMatch = videoPage.match(/source:\s*["'](https:\/\/[^"']+)["']/);
+    if (!sourceMatch) throw new NotFoundError('No video source found');
 
     return {
       embeds: [],
-      streams: streams,
+      stream: [
+        {
+          id: 'primary',
+          type: 'hls',
+          playlist: sourceMatch[1],
+          flags: [flags.CORS_ALLOWED],
+          captions: [],
+        },
+      ],
     };
   },
   async scrapeShow(ctx) {
-    // Similar logic for shows using ctx.media.season.number and ctx.media.episode.number
-    return { embeds: [], streams: [] };
+    const searchResponse = await ctx.fetcher<string>(`https://vidzee.to/search?query=${encodeURIComponent(ctx.media.title)}`, {
+      method: 'GET',
+    });
+
+    const match = searchResponse.match(new RegExp(`href="\\/watch\\/(tv\\/[^"]+)"`));
+    if (!match) throw new NotFoundError('No show found');
+
+    const episodePage = await ctx.fetcher<string>(`https://vidzee.to/watch/${match[1]}/season/${ctx.media.season.number}/episode/${ctx.media.episode.number}`, {
+      method: 'GET',
+    });
+
+    const sourceMatch = episodePage.match(/source:\s*["'](https:\/\/[^"']+)["']/);
+    if (!sourceMatch) throw new NotFoundError('No video source found');
+
+    return {
+      embeds: [],
+      stream: [
+        {
+          id: 'primary',
+          type: 'hls',
+          playlist: sourceMatch[1],
+          flags: [flags.CORS_ALLOWED],
+          captions: [],
+        },
+      ],
+    };
   },
 });
