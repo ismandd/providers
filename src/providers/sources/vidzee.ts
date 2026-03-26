@@ -1,6 +1,9 @@
-import { flags } from '@/search/flags';
-import { makeSourcerer } from '@/providers/base';
-import { MovieMedia, ShowMedia } from '@/search/entities';
+// Changed from '@/search/flags' to relative path
+import { flags } from '../../search/flags'; 
+// Changed from '@/providers/base' to relative path
+import { makeSourcerer } from '../base';
+// Changed from '@/search/entities' to relative path
+import { MovieMedia, ShowMedia } from '../../search/entities';
 
 export const vidzeeScraper = makeSourcerer({
   id: 'vidzee',
@@ -15,7 +18,7 @@ export const vidzeeScraper = makeSourcerer({
     const streams = data.url.map((stream: any) => ({
       id: stream.name,
       type: 'hls',
-      playlist: stream.link, // Note: This link is likely base64 encoded and needs decoding
+      playlist: stream.link, 
       flags: [flags.CORS_ALLOWED],
       captions: data.tracks.map((track: any) => ({
         id: track.url,
