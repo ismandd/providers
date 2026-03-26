@@ -13,13 +13,13 @@ import { autoembedScraper } from '@/providers/sources/autoembed';
 import { dopeboxEmbeds, dopeboxScraper } from '@/providers/sources/dopebox/index';
 import { ee3Scraper } from '@/providers/sources/ee3';
 import { fsharetvScraper } from '@/providers/sources/fsharetv';
-import { fsOnlineEmbeds, fsOnlineScraper } from '@/providers/sources/fsonline/index';
 import { insertunitScraper } from '@/providers/sources/insertunit';
 import { mp4hydraScraper } from '@/providers/sources/mp4hydra';
 import { pirxcyScraper } from '@/providers/sources/pirxcy';
 import { tugaflixScraper } from '@/providers/sources/tugaflix';
 import { vidsrcvipScraper } from '@/providers/sources/vidsrcvip';
 import { zoechipScraper } from '@/providers/sources/zoechip';
+import { vidzeeScraper } from '@/providers/sources/vidzee'; // NEW SOURCE
 
 import { AnimetsuEmbeds } from './embeds/animetsu';
 import {
@@ -104,9 +104,8 @@ import { wecimaScraper } from './sources/wecima';
 import { zunimeScraper } from './sources/zunime';
 
 export function gatherAllSources(): Array<Sourcerer> {
-  // all sources are gathered here
   return [
-    fsOnlineScraper,
+    vidzeeScraper, // ADDED HERE
     dopeboxScraper,
     cuevana3Scraper,
     ridooMoviesScraper,
@@ -155,10 +154,8 @@ export function gatherAllSources(): Array<Sourcerer> {
 }
 
 export function gatherAllEmbeds(): Array<Embed> {
-  // all embeds are gathered here
   return [
-    ...fsOnlineEmbeds,
-    ...dopeboxEmbeds,
+    ...dopeboxEmbeds, // REMOVED fsOnlineEmbeds
     serverMirrorEmbed,
     upcloudScraper,
     vidCloudScraper,
@@ -199,10 +196,6 @@ export function gatherAllEmbeds(): Array<Embed> {
     streamwishEnglishScraper,
     streamtapeLatinoScraper,
     ...cinemaosEmbeds,
-    // ...cinemaosHexaEmbeds,
-    // vidsrcNovaEmbed,
-    // vidsrcCometEmbed,
-    // vidsrcPulsarEmbed,
     ...vidifyEmbeds,
     ...zunimeEmbeds,
     ...AnimetsuEmbeds,
