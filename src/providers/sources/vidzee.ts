@@ -4,6 +4,14 @@ import { SourcererOutput } from '@/providers/base';
 import { flags } from '@/entrypoint/utils/targets';
 import { NotFoundError } from '../../utils/errors';
 
+type VidzeeServerList = {
+  availableServers: Array<{
+    server: number;
+    name: string;
+    sr: string;
+  }>;
+};
+
 type VidzeeServerResponse = {
   url: Array<{
     lang: string;
@@ -19,7 +27,6 @@ type VidzeeServerResponse = {
 };
 
 function decodeVidzeeLink(encoded: string): string {
-  // Browser-safe base64 decode (no Buffer)
   try {
     const binaryString = atob(encoded);
     const bytes = new Uint8Array(binaryString.length);
@@ -30,44 +37,56 @@ function decodeVidzeeLink(encoded: string): string {
     const parts = decoded.split(':');
     return parts.length > 1 ? parts[1] : decoded;
   } catch {
-    return encoded; // fallback
+    return encoded;
   }
+}
+
+async function tryVidzeeServer(ctx: any, tmdbId: number | string, sr: number | string, ss: number, ep: number): Promise<string | null> {
+  const apiUrl = `https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=${sr}&ss=${ss}&ep=${ep}`;
+  
+  try {
+    const json = await ctx.proxiedFetcher<VidzeeServerResponse>(apiUrl);
+    if (json?.url?.length > 0) {
+      const primary = json.url[0];
+      return decodeVidzeeLink(primary.link);
+    }
+  } catch {}
+  return null;
 }
 
 async function vidzeeMovie(ctx: MovieScrapeContext): Promise<SourcererOutput> {
   const tmdbId = ctx.media.tmdbId;
   if (!tmdbId) throw new NotFoundError('No TMDB ID for Vidzee');
 
-  const apiUrl = `https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=0&ss=0&ep=1`;
-  const json = await ctx.proxiedFetcher<VidzeeServerResponse>(apiUrl);
+  // Step 1: Get available servers
+  try {
+    const servers = await ctx.proxiedFetcher<VidzeeServerList>(`https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=`);
+    
+    if (!servers?.availableServers?.length) {
+      throw new NotFoundError('No Vidzee servers available');
+    }
 
-  if (!json.url || json.url.length === 0) {
-    throw new NotFoundError('No Vidzee URL found');
+    // Step 2: Try servers in order (Duke=0 first)
+    for (const server of servers.availableServers.slice(0, 5)) { // Top 5 servers
+      const streamUrl = await tryVidzeeServer(ctx, tmdbId, server.server, 0, 1);
+      if (streamUrl) {
+        return {
+          embeds: [],
+          stream: [{
+            id: `vidzee-${server.server}`,
+            type: 'hls',
+            playlist: streamUrl,
+            flags: [flags.CORS_ALLOWED],
+            captions: [],
+          }],
+        };
+      }
+    }
+  } catch (error: any) {
+    console.error('[Vidzee] Server list failed:', error.message);
   }
 
-  const primary = json.url[0];
-  const decrypted = decodeVidzeeLink(primary.link);
-
-  const captions = json.tracks?.map((t, idx) => ({
-    id: `vidzee-${idx}`,
-    lang: t.lang,
-    url: t.url,
-    type: 'vtt' as const,
-    hasClosedCaptions: false,
-  })) ?? [];
-
-  return {
-    embeds: [],
-    stream: [
-      {
-        id: 'primary',
-        type: 'hls',
-        playlist: decrypted,
-        flags: [flags.CORS_ALLOWED],
-        captions,
-      },
-    ],
-  };
+  throw new NotFoundError('No Vidzee streams found');
 }
 
 async function vidzeeShow(ctx: ShowScrapeContext): Promise<SourcererOutput> {
@@ -77,36 +96,35 @@ async function vidzeeShow(ctx: ShowScrapeContext): Promise<SourcererOutput> {
   const season = ctx.media.season.number;
   const episode = ctx.media.episode.number;
 
-  const apiUrl = `https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=0&ss=${season}&ep=${episode}`;
-  const json = await ctx.proxiedFetcher<VidzeeServerResponse>(apiUrl);
+  // Step 1: Get available servers
+  try {
+    const servers = await ctx.proxiedFetcher<VidzeeServerList>(`https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=`);
+    
+    if (!servers?.availableServers?.length) {
+      throw new NotFoundError('No Vidzee servers available');
+    }
 
-  if (!json.url || json.url.length === 0) {
-    throw new NotFoundError('No Vidzee URL found');
+    // Step 2: Try servers in order
+    for (const server of servers.availableServers.slice(0, 5)) {
+      const streamUrl = await tryVidzeeServer(ctx, tmdbId, server.server, season, episode);
+      if (streamUrl) {
+        return {
+          embeds: [],
+          stream: [{
+            id: `vidzee-${server.server}`,
+            type: 'hls',
+            playlist: streamUrl,
+            flags: [flags.CORS_ALLOWED],
+            captions: [],
+          }],
+        };
+      }
+    }
+  } catch (error: any) {
+    console.error('[Vidzee] Server list failed:', error.message);
   }
 
-  const primary = json.url[0];
-  const decrypted = decodeVidzeeLink(primary.link);
-
-  const captions = json.tracks?.map((t, idx) => ({
-    id: `vidzee-${idx}`,
-    lang: t.lang,
-    url: t.url,
-    type: 'vtt' as const,
-    hasClosedCaptions: false,
-  })) ?? [];
-
-  return {
-    embeds: [],
-    stream: [
-      {
-        id: 'primary',
-        type: 'hls',
-        playlist: decrypted,
-        flags: [flags.CORS_ALLOWED],
-        captions,
-      },
-    ],
-  };
+  throw new NotFoundError('No Vidzee streams found');
 }
 
 export const vidzeeScraper = makeSourcerer({
