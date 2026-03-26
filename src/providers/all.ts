@@ -23,6 +23,7 @@ import { zoechipScraper } from '@/providers/sources/zoechip';
 // Active sources
 import { vidzeeScraper } from './sources/vidzee';
 import { xalaflixScraper } from './sources/xalaflix';
+import { vixsrcScraper } from './sources/vixsrc';
 
 import { AnimetsuEmbeds } from './embeds/animetsu';
 import {
@@ -111,6 +112,7 @@ export function gatherAllSources(): Array<Sourcerer> {
   return [
     vidzeeScraper,
     xalaflixScraper,
+    vixsrcScraper,
   ];
 
   /*
