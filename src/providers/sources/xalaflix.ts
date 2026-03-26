@@ -5,7 +5,7 @@ import { flags } from '@/entrypoint/utils/targets';
 import { NotFoundError } from '../../utils/errors';
 
 type VidzeeServerResponse = {
-  url: Array<{
+  url?: Array<{
     lang: string;
     link: string;
     type: string;
@@ -19,7 +19,6 @@ type VidzeeServerResponse = {
 };
 
 function decodeVidzeeLink(encoded: string): string {
-  // Browser-safe base64 decode (no Buffer)
   try {
     const binaryString = atob(encoded);
     const bytes = new Uint8Array(binaryString.length);
@@ -30,7 +29,7 @@ function decodeVidzeeLink(encoded: string): string {
     const parts = decoded.split(':');
     return parts.length > 1 ? parts[1] : decoded;
   } catch {
-    return encoded; // fallback
+    return encoded;
   }
 }
 
@@ -38,36 +37,32 @@ async function xalaflixMovie(ctx: MovieScrapeContext): Promise<SourcererOutput> 
   const tmdbId = ctx.media.tmdbId;
   if (!tmdbId) throw new NotFoundError('No TMDB ID for Xalaflix');
 
-  const apiUrl = `https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=0&ss=0&ep=1`;
-  const json = await ctx.proxiedFetcher<VidzeeServerResponse>(apiUrl);
-
-  if (!json.url || json.url.length === 0) {
-    throw new NotFoundError('No Xalaflix URL found');
+  const dukeUrl = `https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=0&ss=0&ep=1`;
+  const response = await ctx.proxiedFetcher<VidzeeServerResponse>(dukeUrl);
+  
+  if (response?.url?.length > 0) {
+    const primary = response.url[0];
+    const playlist = decodeVidzeeLink(primary.link);
+    
+    return {
+      embeds: [],
+      stream: [{
+        id: 'xalaflix-duke',
+        type: 'hls',
+        playlist: `https://simple-proxy.is-mand.workers.dev/?destination=${encodeURIComponent(playlist)}`,
+        flags: [flags.CORS_ALLOWED],
+        captions: (response.tracks || []).map((t: any, i: number) => ({
+          id: `xalaflix-${i}`,
+          lang: t?.lang || 'en',
+          url: t?.url || '',
+          type: 'vtt' as const,
+          hasClosedCaptions: false,
+        })).filter((c: any) => c.url),
+      }],
+    };
   }
 
-  const primary = json.url[0];
-  const decrypted = decodeVidzeeLink(primary.link);
-
-  const captions = json.tracks?.map((t, idx) => ({
-    id: `xalaflix-${idx}`,
-    lang: t.lang,
-    url: t.url,
-    type: 'vtt' as const,
-    hasClosedCaptions: false,
-  })) ?? [];
-
-  return {
-    embeds: [],
-    stream: [
-      {
-        id: 'primary',
-        type: 'hls',
-        playlist: decrypted,
-        flags: [flags.CORS_ALLOWED],
-        captions,
-      },
-    ],
-  };
+  throw new NotFoundError('No Xalaflix streams found');
 }
 
 async function xalaflixShow(ctx: ShowScrapeContext): Promise<SourcererOutput> {
@@ -77,42 +72,38 @@ async function xalaflixShow(ctx: ShowScrapeContext): Promise<SourcererOutput> {
   const season = ctx.media.season.number;
   const episode = ctx.media.episode.number;
 
-  const apiUrl = `https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=0&ss=${season}&ep=${episode}`;
-  const json = await ctx.proxiedFetcher<VidzeeServerResponse>(apiUrl);
-
-  if (!json.url || json.url.length === 0) {
-    throw new NotFoundError('No Xalaflix URL found');
+  const dukeUrl = `https://player.vidzee.wtf/api/server?id=${tmdbId}&sr=0&ss=${season}&ep=${episode}`;
+  const response = await ctx.proxiedFetcher<VidzeeServerResponse>(dukeUrl);
+  
+  if (response?.url?.length > 0) {
+    const primary = response.url[0];
+    const playlist = decodeVidzeeLink(primary.link);
+    
+    return {
+      embeds: [],
+      stream: [{
+        id: `xalaflix-duke-s${season}e${episode}`,
+        type: 'hls',
+        playlist: `https://simple-proxy.is-mand.workers.dev/?destination=${encodeURIComponent(playlist)}`,
+        flags: [flags.CORS_ALLOWED],
+        captions: (response.tracks || []).map((t: any, i: number) => ({
+          id: `xalaflix-${i}`,
+          lang: t?.lang || 'en',
+          url: t?.url || '',
+          type: 'vtt' as const,
+          hasClosedCaptions: false,
+        })).filter((c: any) => c.url),
+      }],
+    };
   }
 
-  const primary = json.url[0];
-  const decrypted = decodeVidzeeLink(primary.link);
-
-  const captions = json.tracks?.map((t, idx) => ({
-    id: `xalaflix-${idx}`,
-    lang: t.lang,
-    url: t.url,
-    type: 'vtt' as const,
-    hasClosedCaptions: false,
-  })) ?? [];
-
-  return {
-    embeds: [],
-    stream: [
-      {
-        id: 'primary',
-        type: 'hls',
-        playlist: decrypted,
-        flags: [flags.CORS_ALLOWED],
-        captions,
-      },
-    ],
-  };
+  throw new NotFoundError('No Xalaflix streams found');
 }
 
 export const xalaflixScraper = makeSourcerer({
   id: 'xalaflix',
   name: 'Xalaflix',
-  rank: 121,
+  rank: 997,
   flags: [flags.CORS_ALLOWED],
   scrapeMovie: xalaflixMovie,
   scrapeShow: xalaflixShow,
