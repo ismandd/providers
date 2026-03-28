@@ -21,8 +21,6 @@ import { vidsrcvipScraper } from '@/providers/sources/vidsrcvip';
 import { zoechipScraper } from '@/providers/sources/zoechip';
 
 // Active sources
-import { vidzeeScraper } from './sources/vidzee';
-import { xalaflixScraper } from './sources/xalaflix';
 import { vixsrcScraper } from './sources/vixsrc';
 
 import { AnimetsuEmbeds } from './embeds/animetsu';
@@ -108,60 +106,53 @@ import { wecimaScraper } from './sources/wecima';
 import { zunimeScraper } from './sources/zunime';
 
 export function gatherAllSources(): Array<Sourcerer> {
-  // Only Vidzee + Xalaflix active in UI
   return [
-    vidzeeScraper,
-    xalaflixScraper,
     vixsrcScraper,
+    dopeboxScraper,
+    cuevana3Scraper,
+    ridooMoviesScraper,
+    hdRezkaScraper,
+    warezcdnScraper,
+    insertunitScraper,
+    soaperTvScraper,
+    autoembedScraper,
+    myanimeScraper,
+    tugaflixScraper,
+    ee3Scraper,
+    fsharetvScraper,
+    zoechipScraper,
+    mp4hydraScraper,
+    embedsuScraper,
+    slidemoviesScraper,
+    vidapiClickScraper,
+    coitusScraper,
+    streamboxScraper,
+    nunflixScraper,
+    EightStreamScraper,
+    wecimaScraper,
+    animeflvScraper,
+    animekaiScraper,
+    FedAPIScraper,
+    FedAPIDBScraper,
+    pirxcyScraper,
+    vidsrcvipScraper,
+    rgshowsScraper,
+    vidifyScraper,
+    zunimeScraper,
+    vidnestScraper,
+    animetsuScraper,
+    lookmovieScraper,
+    turbovidSourceScraper,
+    pelisplushdScraper,
+    primewireScraper,
+    movies4fScraper,
+    debridScraper,
+    cinehdplusScraper,
+    fullhdfilmizleScraper,
+    vidlinkScraper,
+    vidrockScraper,
+    watchanimeworldScraper,
   ];
-
-  /*
-  All other sources kept for future use:
-  dopeboxScraper,
-  cuevana3Scraper,
-  ridooMoviesScraper,
-  hdRezkaScraper,
-  warezcdnScraper,
-  insertunitScraper,
-  soaperTvScraper,
-  autoembedScraper,
-  myanimeScraper,
-  tugaflixScraper,
-  ee3Scraper,
-  fsharetvScraper,
-  zoechipScraper,
-  mp4hydraScraper,
-  embedsuScraper,
-  slidemoviesScraper,
-  vidapiClickScraper,
-  coitusScraper,
-  streamboxScraper,
-  nunflixScraper,
-  EightStreamScraper,
-  wecimaScraper,
-  animeflvScraper,
-  animekaiScraper,
-  FedAPIScraper,
-  FedAPIDBScraper,
-  pirxcyScraper,
-  vidsrcvipScraper,
-  rgshowsScraper,
-  vidifyScraper,
-  zunimeScraper,
-  vidnestScraper,
-  animetsuScraper,
-  lookmovieScraper,
-  turbovidSourceScraper,
-  pelisplushdScraper,
-  primewireScraper,
-  movies4fScraper,
-  debridScraper,
-  cinehdplusScraper,
-  fullhdfilmizleScraper,
-  vidlinkScraper,
-  vidrockScraper,
-  watchanimeworldScraper,
-  */
 }
 
 export function gatherAllEmbeds(): Array<Embed> {
