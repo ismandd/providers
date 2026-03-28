@@ -108,7 +108,7 @@ import { zunimeScraper } from './sources/zunime';
 export function gatherAllSources(): Array<Sourcerer> {
   return [
     vixsrcScraper,
-    dopeboxScraper,
+    /*dopeboxScraper,
     cuevana3Scraper,
     ridooMoviesScraper,
     hdRezkaScraper,
@@ -151,7 +151,7 @@ export function gatherAllSources(): Array<Sourcerer> {
     fullhdfilmizleScraper,
     vidlinkScraper,
     vidrockScraper,
-    watchanimeworldScraper,
+    watchanimeworldScraper,*/
   ];
 }
 
