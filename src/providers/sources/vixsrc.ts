@@ -1,77 +1,126 @@
-import { makeSourcerer } from '@/providers/base';
-import { MovieScrapeContext, ShowScrapeContext } from '@/utils/context';
-import { SourcererOutput } from '@/providers/base';
-import { flags } from '@/entrypoint/utils/targets';
-import { NotFoundError } from '../../utils/errors';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { Browser, Page } from 'puppeteer';
 
-const BASE_URL = 'https://vixsrc.to';
+puppeteer.use(StealthPlugin());
 
-async function vixsrcScrape(ctx: MovieScrapeContext | ShowScrapeContext): Promise<SourcererOutput> {
-  const tmdbId = ctx.media.tmdbId;
-  if (!tmdbId) throw new NotFoundError('No TMDB ID for Vixsrc');
-
-  const mediaType = ctx.media.type === 'show' ? 'tv' : 'movie';
-  let vixsrcUrl: string;
-
-  if (mediaType === 'movie') {
-    vixsrcUrl = `${BASE_URL}/movie/${tmdbId}`;
-  } else {
-    const season = (ctx as ShowScrapeContext).media.season.number;
-    const episode = (ctx as ShowScrapeContext).media.episode.number;
-    vixsrcUrl = `${BASE_URL}/tv/${tmdbId}/${season}/${episode}`;
-  }
-
-  const html = await ctx.proxiedFetcher(vixsrcUrl);
-
-  let masterPlaylistUrl: string | null = null;
-
-  // Method 1: window.masterPlaylist (primary)
-  if (html.includes('window.masterPlaylist')) {
-    const urlMatch = html.match(/url:\s*['"]([^'"]+)['"]/);
-    const tokenMatch = html.match(/token\s*:\s*['"]([^'"]+)['"]/);
-    const expiresMatch = html.match(/expires\s*:\s*['"]([^'"]+)['"]/);
-
-    if (urlMatch && tokenMatch && expiresMatch) {
-      const baseUrl = urlMatch[1];
-      const token = tokenMatch[1];
-      const expires = expiresMatch[1];
-
-      masterPlaylistUrl = baseUrl.includes('?b=1') 
-        ? `${baseUrl}&token=${token}&expires=${expires}&h=1&lang=en`
-        : `${baseUrl}?token=${token}&expires=${expires}&h=1&lang=en`;
-    }
-  }
-
-  // Method 2: Direct .m3u8 links
-  if (!masterPlaylistUrl) {
-    const m3u8Match = html.match(/(https?:\/\/[^'\s]+\.m3u8[^'\s]*)/);
-    if (m3u8Match) masterPlaylistUrl = m3u8Match[1];
-  }
-
-  if (!masterPlaylistUrl) {
-    throw new NotFoundError('No Vixsrc stream found');
-  }
-
-  // PROXY HLS URL - CRITICAL for player
-  const proxiedPlaylist = `https://simple-proxy.is-mand.workers.dev/?destination=${encodeURIComponent(masterPlaylistUrl)}`;
-
-  return {
-    embeds: [],
-    stream: [{
-      id: 'vixsrc-primary',
-      type: 'hls',
-      playlist: proxiedPlaylist,
-      flags: [flags.CORS_ALLOWED],
-      captions: [],
-    }],
-  };
+interface VixMedia {
+  id: string;
+  type: 'movie' | 'tv';
+  season?: number;
+  episode?: number;
 }
 
-export const vixsrcScraper = makeSourcerer({
+interface ScrapeResult {
+  url: string;
+  quality: string;
+  type: 'hls';
+}
+
+export const vixScraper = {
   id: 'vixsrc',
-  name: 'Vixsrc',
-  rank: 998,
-  flags: [flags.CORS_ALLOWED],
-  scrapeMovie: vixsrcScrape,
-  scrapeShow: vixsrcScrape,
-});
+  name: 'VixSrc',
+  rank: 120,
+
+  /**
+   * Main scraping logic
+   */
+  async scrape(media: VixMedia): Promise<ScrapeResult> {
+    const browser: Browser = await puppeteer.launch({
+      headless: true, // Set to false for debugging
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+      ],
+    });
+
+    try {
+      const page: Page = await browser.newPage();
+      let masterLink: string | null = null;
+
+      // 1. Block Ads/Analytics (Replaces uBlock extension)
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        const url = request.url();
+        const resourceType = request.resourceType();
+        
+        // Check for the M3U8 Master Playlist
+        if (
+          url.includes('/playlist/') &&
+          url.includes('token=') &&
+          !url.includes('type=audio') &&
+          !masterLink
+        ) {
+          masterLink = url;
+          request.continue();
+          return;
+        }
+
+        // Block typical ad/tracking domains and non-essential assets
+        const filters = ['doubleclick', 'adsystem', 'quantserve', 'facebook', 'analytics'];
+        if (filters.some(ad => url.includes(ad)) || ['image', 'font'].includes(resourceType)) {
+          request.abort();
+        } else {
+          request.continue();
+        }
+      });
+
+      // 2. Anti-Debugger & Window Pop-up Protection
+      await page.evaluateOnNewDocument(() => {
+        // Disable debugger traps
+        const originalConstructor = window.Function.prototype.constructor;
+        (window.Function.prototype.constructor as any) = function() {
+          if (arguments[0] === 'debugger') return () => {};
+          return originalConstructor.apply(this, arguments);
+        };
+        // Kill popups
+        window.open = () => null;
+      });
+
+      // 3. Navigate to Target
+      const targetUrl = media.type === 'tv' 
+        ? `https://vixsrc.to/tv/${media.id}/${media.season}/${media.episode}`
+        : `https://vixsrc.to/movie/${media.id}`;
+
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+      // 4. Trigger Player Interaction
+      // Vix requires a click on the iframe to initiate the token exchange/stream request
+      const iframeElement = await page.waitForSelector('iframe', { timeout: 10000 });
+      if (iframeElement) {
+        const box = await iframeElement.boundingBox();
+        if (box) {
+          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        }
+      }
+
+      // 5. Wait for the Sniffer to catch the link
+      const result = await this.waitForLink(20000, () => masterLink);
+      
+      if (!result) throw new Error('Stream link not captured');
+
+      return {
+        url: result,
+        quality: 'auto',
+        type: 'hls'
+      };
+
+    } finally {
+      await browser.close().catch(() => {});
+    }
+  },
+
+  /**
+   * Internal polling helper to wait for the network event
+   */
+  private async waitForLink(timeout: number, checkFn: () => string | null): Promise<string | null> {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const link = checkFn();
+      if (link) return link;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    return null;
+  }
+};
